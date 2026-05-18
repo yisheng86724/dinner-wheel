@@ -372,15 +372,16 @@
         if (!name) return;
         
         try {
+            // 這裡確保是使用外層已經宣告好的 global supabase 物件
+            // 只對 data 和 error 進行解構宣告
             const { data, error } = await supabase
                 .from('regions')
                 .insert([{ name: name }])
-                .select(); // 加上 select() 才能回傳剛剛新增的資料
+                .select();
                 
             if (error) throw error;
             
             newRegionInput.value = '';
-            // 直接切換到剛新增的地區
             if(data && data.length > 0) {
                 selectedRegionId = data[0].id;
             }
@@ -396,6 +397,7 @@
         if (!name || !selectedRegionId) return;
 
         try {
+            // 這裡同樣只宣告 error，不要動到 supabase 這個字
             const { error } = await supabase
                 .from('foods')
                 .insert([{ name: name, region_id: selectedRegionId }]);
