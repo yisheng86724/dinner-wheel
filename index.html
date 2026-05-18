@@ -121,9 +121,9 @@
         }
 
         /* -----------------------------------------------------------------
-           2. 美食轉盤專屬樣式
+           2. 共用面板與控制項樣式 (轉盤與電影時刻表通用)
            ----------------------------------------------------------------- */
-        .wheel-dashboard {
+        .tool-dashboard {
             background: white;
             padding: 25px;
             border-radius: 16px;
@@ -160,32 +160,35 @@
             border: none;
             cursor: pointer;
             font-weight: bold;
+            transition: background-color 0.2s;
         }
         button.action-btn:hover {
             background-color: #43a047;
         }
         
-        /* 食物管理清單與刪除按鈕樣式 */
-        .food-list-management {
+        /* 列表管理容器 */
+        .list-management-wrapper {
             margin-top: 20px;
             max-width: 500px;
             width: 100%;
             text-align: left;
         }
-        .food-list-title {
+        .list-management-title {
             font-size: 1.1rem;
             font-weight: bold;
             margin-bottom: 10px;
             color: #444;
         }
-        #food-items-container {
-            max-height: 180px;
+        .scroll-list-container {
+            max-height: 220px;
             overflow-y: auto;
             border: 1px solid #eee;
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px;
             background: #fafafa;
         }
+        
+        /* 美食轉盤的單列項目樣式 */
         .food-item-row {
             display: flex;
             justify-content: space-between;
@@ -215,6 +218,7 @@
             color: white;
         }
 
+        /* 美食轉盤畫布區 */
         .wheel-container {
             display: flex;
             flex-direction: column;
@@ -255,6 +259,56 @@
             text-align: center;
             min-height: 2.2rem;
         }
+
+        /* -----------------------------------------------------------------
+           3. 電影時刻表專屬樣式
+           ----------------------------------------------------------------- */
+        .tab-btn {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: all 0.25s ease;
+        }
+        .movie-schedule-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .movie-schedule-card h4 {
+            margin: 0 0 12px 0;
+            font-size: 1.15rem;
+            color: #1a202c;
+            border-left: 4px solid #0288d1;
+            padding-left: 8px;
+        }
+        .time-slots-grid {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .time-chip {
+            background-color: #e1f5fe;
+            color: #0288d1;
+            border: 1px solid #b3e5fc;
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .time-chip:hover {
+            background-color: #0288d1;
+            color: white;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
@@ -276,7 +330,14 @@
                 <p>糾結的時候，就讓動態美食轉盤幫你隨機挑選完美的一餐！</p>
             </div>
 
-            <!-- 功能 2：未來擴充預留 -->
+            <!-- 功能 2：電影時刻表 -->
+            <div class="menu-card" onclick="switchPage('movie-schedule-page')">
+                <span class="icon">🎬</span>
+                <h3>電影時刻表查詢</h3>
+                <p>依電影或影城名稱，快速切換並呈現最即時的放映場次！</p>
+            </div>
+
+            <!-- 功能 3：未來擴充預留 -->
             <div class="menu-card" onclick="switchPage('coming-soon-page')">
                 <span class="icon">💰</span>
                 <h3>記帳小幫手</h3>
@@ -291,7 +352,7 @@
     <div id="dinner-wheel-page" class="page-content" style="display: none;">
         <button class="back-btn" onclick="showMainMenu()">⬅️ 返回主選單</button>
         
-        <div class="wheel-dashboard">
+        <div class="tool-dashboard">
             <h2 style="text-align: center; margin-top: 0; color: #2e7d32;">🎡 今天吃什麼？美食決策轉盤</h2>
             
             <!-- 控制區：地區選擇與新增 -->
@@ -301,7 +362,6 @@
                     <option value="">-- 請選擇地區 --</option>
                 </select>
             </div>
-            <br>
             <div class="control-panel">
                 <input type="text" id="new-region-input" placeholder="新增地區名稱 (例如: 中山區)">
                 <button id="add-region-btn" class="action-btn">新增地區</button>
@@ -314,9 +374,9 @@
             </div>
 
             <!-- 食物刪除與管理面板 -->
-            <div class="food-list-management">
-                <div class="food-list-title">📍 目前區域美食清單（可在此刪除）：</div>
-                <div id="food-items-container">
+            <div class="list-management-wrapper">
+                <div class="list-management-title">📍 目前區域美食清單（可在此刪除）：</div>
+                <div id="food-items-container" class="scroll-list-container">
                     <span style="color: #999; font-size: 0.9rem;">請先選擇地區...</span>
                 </div>
             </div>
@@ -331,7 +391,54 @@
     </div>
 
     <!-- =================================================================
-         區塊三：功能分頁 - 興建中預留 (預設隱藏)
+         區塊三：功能分頁 - 電影時刻表 (預設隱藏)
+         ================================================================= -->
+    <div id="movie-schedule-page" class="page-content" style="display: none;">
+        <button class="back-btn" onclick="showMainMenu()">⬅️ 返回主選單</button>
+        
+        <div class="tool-dashboard">
+            <h2 style="text-align: center; margin-top: 0; color: #0288d1;">🎬 電影時刻表查詢系統</h2>
+            
+            <!-- 查詢模式切換標籤 (Tabs) -->
+            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 25px;">
+                <button id="tab-by-movie" class="tab-btn" style="background-color: #0288d1;" onclick="switchSearchMode('movie')">🎥 依電影名稱查</button>
+                <button id="tab-by-cinema" class="tab-btn" style="background-color: #78909c;" onclick="switchSearchMode('cinema')">🍿 依影城名稱查</button>
+            </div>
+
+            <!-- 模式 A：依電影查詢下拉選單 -->
+            <div id="search-by-movie-section" class="control-panel">
+                <label for="movie-select">選擇電影：</label>
+                <select id="movie-select" onchange="fetchSchedules()">
+                    <option value="">-- 請選擇電影 --</option>
+                    <option value="m1">復仇者聯盟 5</option>
+                    <option value="m2">阿凡達：火與灰燼</option>
+                    <option value="m3">名偵探柯南 劇場版</option>
+                </select>
+            </div>
+
+            <!-- 模式 B：依影城查詢下拉選單 -->
+            <div id="search-by-cinema-section" class="control-panel" style="display: none;">
+                <label for="cinema-select">選擇影城：</label>
+                <select id="cinema-select" onchange="fetchSchedules()">
+                    <option value="">-- 請選擇影城 --</option>
+                    <option value="c1">信義威秀影城</option>
+                    <option value="c2">美麗華大直影城</option>
+                    <option value="c3">板橋大遠百威秀</option>
+                </select>
+            </div>
+
+            <!-- 時刻表結果呈現區 -->
+            <div class="list-management-wrapper" style="max-width: 100%;">
+                <div class="list-management-title" id="schedule-results-title">📅 今日放映場次：</div>
+                <div id="schedule-results-container" class="scroll-list-container" style="max-height: 400px; background: #fafafa;">
+                    <span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================
+         區塊四：功能分頁 - 興建中預留 (預設隱藏)
          ================================================================= -->
     <div id="coming-soon-page" class="page-content" style="display: none;">
         <button class="back-btn" onclick="showMainMenu()">⬅️ 返回主選單</button>
@@ -377,6 +484,11 @@
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
             document.getElementById('main-menu').style.display = 'block';
             document.getElementById('result-display').innerText = '';
+            
+            // 重置電影時刻表欄位與結果
+            document.getElementById('movie-select').value = '';
+            document.getElementById('cinema-select').value = '';
+            document.getElementById('schedule-results-container').innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
         }
 
         /* -----------------------------------------------------------------
@@ -603,7 +715,98 @@
             requestAnimationFrame(animate);
         });
 
-        // 初始化繪製
+        /* -----------------------------------------------------------------
+           E. 電影時刻表查詢核心邏輯 (目前為前端模擬資料，預留串接接口)
+           ----------------------------------------------------------------- */
+        let currentSearchMode = 'movie'; 
+
+        // 1. 切換查詢模式 (依電影 或 依影城)
+        function switchSearchMode(mode) {
+            currentSearchMode = mode;
+            const movieSection = document.getElementById('search-by-movie-section');
+            const cinemaSection = document.getElementById('search-by-cinema-section');
+            const tabMovie = document.getElementById('tab-by-movie');
+            const tabCinema = document.getElementById('tab-by-cinema');
+            const container = document.getElementById('schedule-results-container');
+
+            // 重置與清空
+            container.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
+            
+            if (mode === 'movie') {
+                movieSection.style.display = 'flex';
+                cinemaSection.style.display = 'none';
+                tabMovie.style.background = '#0288d1';   
+                tabCinema.style.background = '#78909c';  
+                document.getElementById('movie-select').value = '';
+            } else {
+                movieSection.style.display = 'none';
+                cinemaSection.style.display = 'flex';
+                tabMovie.style.background = '#78909c';
+                tabCinema.style.background = '#0288d1';
+                document.getElementById('cinema-select').value = '';
+            }
+        }
+
+        // 2. 模擬拉取並渲染時刻表
+        function fetchSchedules() {
+            const container = document.getElementById('schedule-results-container');
+            const movieVal = document.getElementById('movie-select').value;
+            const cinemaVal = document.getElementById('cinema-select').value;
+
+            // 未選取任何選項則返回提示
+            if ((currentSearchMode === 'movie' && !movieVal) || (currentSearchMode === 'cinema' && !cinemaVal)) {
+                container.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
+                return;
+            }
+
+            container.innerHTML = '<div style="color:#666; font-size:0.95rem; text-align:center; padding:10px;">🔍 正在為您搜尋最新場次資訊...</div>';
+
+            // 模擬異步 API 載入延遲效果 (0.5秒)
+            setTimeout(() => {
+                container.innerHTML = ''; 
+
+                if (currentSearchMode === 'movie') {
+                    // 【依電影查詢】呈現各影城針對該電影的場次
+                    container.innerHTML += `
+                        <div class="movie-schedule-card">
+                            <h4>📍 信義威秀影城 (2D 數位)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">10:30</div><div class="time-chip">13:15</div>
+                                <div class="time-chip">16:00</div><div class="time-chip">19:45</div>
+                                <div class="time-chip">22:30</div>
+                            </div>
+                        </div>
+                        <div class="movie-schedule-card">
+                            <h4>📍 美麗華大直影城 (IMAX 3D)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">12:00</div><div class="time-chip">15:30</div>
+                                <div class="time-chip">18:40</div><div class="time-chip">21:50</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // 【依影城查詢】呈現該影城目前熱映中的各部電影
+                    container.innerHTML += `
+                        <div class="movie-schedule-card">
+                            <h4>🎬 復仇者聯盟 5 (輔12)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">11:00</div><div class="time-chip">14:20</div>
+                                <div class="time-chip">17:40</div><div class="time-chip">21:00</div>
+                            </div>
+                        </div>
+                        <div class="movie-schedule-card">
+                            <h4>🎬 名偵探柯南 劇場版 (普)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">09:30</div><div class="time-chip">13:00</div>
+                                <div class="time-chip">16:15</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }, 500);
+        }
+
+        // 初始化繪製空白轉盤
         drawWheel();
     </script>
 </body>
