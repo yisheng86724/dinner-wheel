@@ -221,8 +221,13 @@
     const SUPABASE_URL = 'https://wqlcmlybfdyqlyysfauq.supabase.co/rest/v1/';
     const SUPABASE_ANON_KEY = 'sb_publishable_dYJ7_EHjkfM1OIYjK749Lg_tQfmhfgj';
     
-    // 初始化 Supabase
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 初始化 Supabase，並明確關閉自動儲存 Session 的功能，避免引發瀏覽器隱私阻擋
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            persistSession: false, // 💡 關鍵：不把登入狀態存在瀏覽器，避開 Tracking Prevention
+            autoRefreshToken: false
+        }
+    });
 
     const canvas = document.getElementById('wheel');
     const ctx = canvas.getContext('2d');
