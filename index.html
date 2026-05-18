@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今晚吃什麼？- Supabase 雲端多地區轉盤</title>
+    <!-- 引入 Supabase 官方 JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --accent-color: #ff4757;
+            --bg-color: #f1f2f6;
+            --success-color: #2ed573;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            gap: 40px;
+            max-width: 950px;
+            width: 100%;
+        }
+
+        .settings-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 { color: #333; margin-top: 0; margin-bottom: 15px; }
+        label { font-size: 14px; font-weight: bold; color: #666; margin-bottom: 5px; }
+
+        .region-select-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        select {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            background: white;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: #357abd; }
+
+        .menu-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+
+        .menu-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .menu-item:last-child { border-bottom: none; }
+
+        .btn-delete { background-color: transparent; color: var(--accent-color); padding: 5px 10px; }
+        .btn-delete:hover { background-color: #ffeae6; }
+
+        .wheel-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .wheel-container {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        #wheel {
+            border: 6px solid #2c3e50;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: transform 4s cubic-bezier(0.1, 0.8, 0.3, 1);
+        }
+
+        .pointer {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid var(--accent-color);
+            z-index: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        .btn-spin {
+            background-color: var(--success-color);
+            color: white;
+            font-size: 20px;
+            padding: 12px 40px;
+            border-radius: 25px;
+            box-shadow: 0 5px 15px rgba(46, 213, 115, 0.4);
+        }
+        .btn-spin:hover { background-color: #26af5f; }
+        .btn-spin:disabled { background-color: #a4b0be; cursor: not-allowed; box-shadow: none; }
+
+        #result {
+            margin-top: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+            height: 30px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column-reverse; }
+            #wheel { width: 300px; height: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="settings-panel">
+        <h2>雲端美食名單設定</h2>
+        
+        <label>選擇目前所在地區</label>
+        <div class="region-select-group">
+            <select id="region-select">
+                <option value="">載入中...</option>
+            </select>
+        </div>
+
+        <label>新增自訂地區</label>
+        <div class="input-group">
+            <input type="text" id="new-region-input" placeholder="例如：公司附近、中山站..." maxlength="10">
+            <button class="btn-primary" id="add-region-btn">新增地區</button>
+        </div>
+
+        <hr style="width:100%; border:0; border-top:1px solid #eee; margin:15px 0;">
+
+        <label id="food-list-label">目前地區的晚餐清單</label>
+        <div class="input-group" style="margin-top:5px;">
+            <input type="text" id="food-input" placeholder="輸入想吃的食物..." maxlength="10">
+            <button class="btn-primary" id="add-food-btn">新增食物</button>
+        </div>
+        <ul class="menu-list" id="menu-list">
+            <!-- 動態產生食物 -->
+        </ul>
+    </div>
+
+    <div class="wheel-panel">
+        <div class="wheel-container">
+            <div class="pointer"></div>
+            <canvas id="wheel" width="360" height="360"></canvas>
+        </div>
+        <button class="btn-spin" id="spin-btn" disabled>開始旋轉</button>
+        <div id="result"></div>
+    </div>
+</div>
+
+<script>
+    // ⚠️ 請置換成你自己的 Supabase 連線資訊
+    const SUPABASE_URL = 'https://wqlcmlybfdyqlyysfauq.supabase.co/rest/v1/';
+    const SUPABASE_ANON_KEY = 'sb_publishable_dYJ7_EHjkfM1OIYjK749Lg_tQfmhfgj';
+    
+    // 初始化 Supabase
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const canvas = document.getElementById('wheel');
+    const ctx = canvas.getContext('2d');
+    const regionSelect = document.getElementById('region-select');
+    const newRegionInput = document.getElementById('new-region-input');
+    const addRegionBtn = document.getElementById('add-region-btn');
+    const foodInput = document.getElementById('food-input');
+    const addFoodBtn = document.getElementById('add-food-btn');
+    const menuListUl = document.getElementById('menu-list');
+    const spinBtn = document.getElementById('spin-btn');
+    const resultDiv = document.getElementById('result');
+    const foodListLabel = document.getElementById('food-list-label');
+
+    let regions = [];       // 從 DB 撈出來的所有地區： [{id: 1, name: "公司"}, ...]
+    let currentFoods = [];  // 當前地區的所有食物： [{id: 5, name: "便當"}, ...]
+    let selectedRegionId = null; 
+    
+    let currentRotation = 0;
+    let isSpinning = false;
+
+    const size = canvas.width;
+    const center = size / 2;
+    const colors = ["#ff9ff3", "#feca57", "#ffff80", "#ff6b6b", "#48dbfb", "#1dd1a1", "#a29bfe", "#ffeaa7"];
+
+    // 1. 從資料庫載入所有地區
+    async function loadRegions() {
+        try {
+            // 查詢 regions 資料表，並依 id 排序
+            let { data, error } = await supabase.from('regions').select('*').order('id', { ascending: true });
+            if (error) throw error;
+
+            regions = data || [];
+            
+            // 渲染下拉選單
+            regionSelect.innerHTML = '';
+            if (regions.length === 0) {
+                regionSelect.innerHTML = '<option value="">請先新增地區</option>';
+                foodListLabel.textContent = "請先建立地區";
+                currentFoods = [];
+                drawWheel();
+                renderFoodList();
+                return;
+            }
+
+            regions.forEach(r => {
+                const option = document.createElement('option');
+                option.value = r.id;
+                option.textContent = r.name;
+                regionSelect.appendChild(option);
+            });
+
+            // 預設選取第一個地區，並載入對應食物
+            if (!selectedRegionId && regions.length > 0) {
+                selectedRegionId = regions[0].id;
+            } else {
+                regionSelect.value = selectedRegionId;
+            }
+            
+            const currentRegionName = regions.find(r => r.id == selectedRegionId)?.name || "";
+            foodListLabel.textContent = `【${currentRegionName}】的晚餐清單`;
+            
+            await loadFoods(selectedRegionId);
+
+        } catch (err) {
+            console.error("載入地區失敗:", err.message);
+        }
+    }
+
+    // 2. 根據地區 ID 從資料庫載入食物
+    async function loadFoods(regionId) {
+        if (!regionId) return;
+        try {
+            let { data, error } = await supabase
+                .from('foods')
+                .select('*')
+                .eq('region_id', regionId)
+                .order('id', { ascending: true });
+                
+            if (error) throw error;
+
+            currentFoods = data || [];
+            renderFoodList();
+            drawWheel();
+        } catch (err) {
+            console.error("載入食物失敗:", err.message);
+        }
+    }
+
+    // 3. 渲染食物列表 UI
+    function renderFoodList() {
+        menuListUl.innerHTML = '';
+        currentFoods.forEach((food) => {
+            const li = document.createElement('li');
+            li.className = 'menu-item';
+            li.innerHTML = `
+                <span>${food.name}</span>
+                <button class="btn-delete" onclick="deleteFoodFromDB(${food.id})">刪除</button>
+            `;
+            menuListUl.appendChild(li);
+        });
+        spinBtn.disabled = currentFoods.length < 2;
+    }
+
+    // 4. 畫圓形轉盤
+    function drawWheel() {
+        const numOptions = currentFoods.length;
+        ctx.clearRect(0, 0, size, size);
+        if (numOptions === 0) return;
+        
+        const arcSize = (2 * Math.PI) / numOptions;
+
+        currentFoods.forEach((food, i) => {
+            const angle = i * arcSize;
+            
+            ctx.beginPath();
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.moveTo(center, center);
+            ctx.arc(center, center, center, angle, angle + arcSize);
+            ctx.lineTo(center, center);
+            ctx.fill();
+
+            ctx.save();
+            ctx.translate(center, center);
+            ctx.rotate(angle + arcSize / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#2c3e50";
+            ctx.font = "bold 15px Arial";
+            ctx.fillText(food.name, center - 25, 6);
+            ctx.restore();
+        });
+    }
+
+    // --- 事件處理：與 Supabase 互動 ---
+
+    // 切換地區
+    regionSelect.addEventListener('change', async (e) => {
+        selectedRegionId = e.target.value;
+        resultDiv.innerText = "";
+        const currentRegionName = regions.find(r => r.id == selectedRegionId)?.name || "";
+        foodListLabel.textContent = `【${currentRegionName}】的晚餐清單`;
+        await loadFoods(selectedRegionId);
+    });
+
+    // 新增地區到 DB
+    addRegionBtn.addEventListener('click', async () => {
+        const name = newRegionInput.value.trim();
+        if (!name) return;
+        
+        try {
+            const { data, error } = await supabase
+                .from('regions')
+                .insert([{ name: name }])
+                .select(); // 加上 select() 才能回傳剛剛新增的資料
+                
+            if (error) throw error;
+            
+            newRegionInput.value = '';
+            // 直接切換到剛新增的地區
+            if(data && data.length > 0) {
+                selectedRegionId = data[0].id;
+            }
+            await loadRegions();
+        } catch (err) {
+            alert("新增地區失敗: " + err.message);
+        }
+    });
+
+    // 新增食物到 DB
+    addFoodBtn.addEventListener('click', async () => {
+        const name = foodInput.value.trim();
+        if (!name || !selectedRegionId) return;
+
+        try {
+            const { error } = await supabase
+                .from('foods')
+                .insert([{ name: name, region_id: selectedRegionId }]);
+                
+            if (error) throw error;
+
+            foodInput.value = '';
+            await loadFoods(selectedRegionId);
+        } catch (err) {
+            alert("新增食物失敗: " + err.message);
+        }
+    });
+
+    foodInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addFoodBtn.click();
+    });
+
+    // 從 DB 刪除食物
+    window.deleteFoodFromDB = async function(foodId) {
+        if (isSpinning) return;
+        try {
+            const { error } = await supabase
+                .from('foods')
+                .delete()
+                .eq('id', foodId);
+                
+            if (error) throw error;
+            await loadFoods(selectedRegionId);
+        } catch (err) {
+            alert("刪除失敗: " + err.message);
+        }
+    };
+
+    // 5. 旋轉轉盤邏輯 (純前端運算，不耗費 DB 資源)
+    spinBtn.addEventListener('click', () => {
+        if (isSpinning || currentFoods.length < 2) return;
+
+        isSpinning = true;
+        spinBtn.disabled = true;
+        resultDiv.innerText = "雲端配對今日晚餐中...";
+
+        const randomDegrees = Math.floor(Math.random() * 360);
+        currentRotation += 1440 + randomDegrees;
+
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            spinBtn.disabled = false;
+
+            const actualDegrees = (360 - (currentRotation % 360)) % 360;
+            const adjustedDegrees = (actualDegrees + 270) % 360;
+            
+            const arcIndex = Math.floor((adjustedDegrees / 360) * currentFoods.length);
+            const selected = currentFoods[arcIndex];
+
+            resultDiv.innerText = `🎉 決定了！去吃：${selected.name} 🎉`;
+        }, 4000);
+    });
+
+    // 網頁開啟時，觸發初始載入
+    loadRegions();
+</script>
+
+</body>
+</html>
