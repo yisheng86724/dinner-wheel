@@ -715,12 +715,76 @@
             requestAnimationFrame(animate);
         });
 
-        /* -----------------------------------------------------------------
-           E. 電影時刻表查詢核心邏輯 (目前為前端模擬資料，預留串接接口)
+ /* -----------------------------------------------------------------
+           E. 電影時刻表查詢核心邏輯 (方案二：全自動網路 API 串接版)
            ----------------------------------------------------------------- */
-        let currentSearchMode = 'movie'; 
+        let currentSearchMode = 'movie'; // 預設為 'movie' 模式
+        let globalMovieData = [];        // 存放從 API 撈回來的全台今日原始場次資料
 
-        // 1. 切換查詢模式 (依電影 或 依影城)
+        // 1. 初始化：網頁載入時自動去撈取今日 API 所有資料，並建置下拉選單
+        async function initMovieSchedule() {
+            const movieSelect = document.getElementById('movie-select');
+            const cinemaSelect = document.getElementById('cinema-select');
+            const container = document.getElementById('schedule-results-container');
+
+            movieSelect.innerHTML = '<option value="">-- 資料載入中... --</option>';
+            cinemaSelect.innerHTML = '<option value="">-- 資料載入中... --</option>';
+
+            try {
+                // 使用 allorigins 代理伺服器解決前端跨網域 (CORS) 限制
+                const targetUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://taiwan-movie-api.vercel.app/api/today')}`;
+                let response = await fetch(targetUrl);
+                if (!response.ok) throw new Error('網路連線異常');
+                
+                let wrapperData = await response.json();
+                globalMovieData = JSON.parse(wrapperData.contents); // 儲存至全域變數
+
+                // --- 動態產生「電影選單」 (利用 Set 篩選出重複的電影名稱) ---
+                const movieSet = new Set();
+                globalMovieData.forEach(item => {
+                    if(item.movie_name) movieSet.add(item.movie_name.trim());
+                });
+
+                movieSelect.innerHTML = '<option value="">-- 請選擇電影 --</option>';
+                // 將排序後的電影塞入下拉選單
+                Array.from(movieSet).sort().forEach(movieName => {
+                    const opt = document.createElement('option');
+                    opt.value = movieName;
+                    opt.textContent = movieName;
+                    movieSelect.appendChild(opt);
+                });
+
+                // --- 動態產生「影城選單」 (利用 Set 篩選出重複的影城名稱) ---
+                const cinemaSet = new Set();
+                globalMovieData.forEach(item => {
+                    if(item.cinema_name) cinemaSet.add(item.cinema_name.trim());
+                });
+
+                cinemaSelect.innerHTML = '<option value="">-- 請選擇影城 --</option>';
+                // 將排序後的影城塞入下拉選單
+                Array.from(cinemaSet).sort().forEach(cinemaName => {
+                    const opt = document.createElement('option');
+                    opt.value = cinemaName;
+                    opt.textContent = cinemaName;
+                    cinemaSelect.appendChild(opt);
+                });
+
+                container.innerHTML = '<span style="color: #4caf50; font-size: 0.9rem;">✅ 今日最新場次全數載入完成！請選擇上方條件查詢。</span>';
+
+            } catch (err) {
+                console.error(err);
+                movieSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
+                cinemaSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
+                container.innerHTML = `
+                    <div style="color:#d32f2f; font-size:0.9rem; text-align:center; padding:10px;">
+                        ❌ 無法取得今日電影資訊。<br>
+                        <small style="color:#777;">原因：API 伺服器延遲。請重新整理網頁試試看！</small>
+                    </div>
+                `;
+            }
+        }
+
+        // 2. 切換查詢模式 (依電影 或 依影城)
         function switchSearchMode(mode) {
             currentSearchMode = mode;
             const movieSection = document.getElementById('search-by-movie-section');
@@ -729,7 +793,9 @@
             const tabCinema = document.getElementById('tab-by-cinema');
             const container = document.getElementById('schedule-results-container');
 
-            // 重置與清空
+            // 切換時重置下拉選單值與提示
+            document.getElementById('movie-select').value = '';
+            document.getElementById('cinema-select').value = '';
             container.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
             
             if (mode === 'movie') {
@@ -737,93 +803,79 @@
                 cinemaSection.style.display = 'none';
                 tabMovie.style.background = '#0288d1';   
                 tabCinema.style.background = '#78909c';  
-                document.getElementById('movie-select').value = '';
             } else {
                 movieSection.style.display = 'none';
                 cinemaSection.style.display = 'flex';
                 tabMovie.style.background = '#78909c';
                 tabCinema.style.background = '#0288d1';
-                document.getElementById('cinema-select').value = '';
             }
         }
 
-        // 2. 自動化撈取並渲染真實網路時刻表
-        async function fetchSchedules() {
+        // 3. 當使用者選定內容時，直接對已下載的 globalMovieData 進行過濾與渲染
+        function fetchSchedules() {
             const container = document.getElementById('schedule-results-container');
-            const movieVal = document.getElementById('movie-select').value;
-            const cinemaVal = document.getElementById('cinema-select').value;
+            const selectedMovie = document.getElementById('movie-select').value;
+            const selectedCinema = document.getElementById('cinema-select').value;
 
-            // 未選取任何選項則返回提示
-            if ((currentSearchMode === 'movie' && !movieVal) || (currentSearchMode === 'cinema' && !cinemaVal)) {
+            // 檢查是否有選取值
+            if ((currentSearchMode === 'movie' && !selectedMovie) || (currentSearchMode === 'cinema' && !selectedCinema)) {
                 container.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
                 return;
             }
 
-            container.innerHTML = '<div style="color:#0288d1; font-size:0.95rem; text-align:center; padding:10px;">⚡ 正在連線至公開 API 撈取全台即時場次...</div>';
+            container.innerHTML = ''; // 清空畫面
 
-            try {
-                // 1. 設定開源的台灣電影資料 API 端點 (這裡以社群常用的民間聚合 API 為例)
-                // 💡 注意：因為前端 CORS 限制，我們加上了 allorigins 代理伺服器
-                const targetUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://taiwan-movie-api.vercel.app/api/today')}`;
-                
-                let response = await fetch(targetUrl);
-                if (!response.ok) throw new Error('網路連線異常');
-                
-                let wrapperData = await response.json();
-                // allorigins 會將原 json 字串包在 contents 屬性中
-                let rawData = JSON.parse(wrapperData.contents); 
+            if (currentSearchMode === 'movie') {
+                // 【依電影查詢】：在全台資料中，找出所有放映「該電影」的影城與時間
+                let matchedCinemas = globalMovieData.filter(item => item.movie_name === selectedMovie);
 
-                container.innerHTML = ''; // 清空加載中提示
-
-                // 2. 解析並呈現資料
-                if (currentSearchMode === 'movie') {
-                    // 【依電影查詢】：找出選定電影，並列出有播放該電影的影城與場次
-                    // 備註：以下 logic 依據標準開源電影 API 的 JSON 結構進行篩選
-                    let matchedCinemas = rawData.filter(item => item.movie_name.includes(movieVal));
-
-                    if (matchedCinemas.length === 0) {
-                        container.innerHTML = '<span style="color: #999;">今日此電影暫無放映場次。</span>';
-                        return;
-                    }
-
-                    matchedCinemas.forEach(cinema => {
-                        let timeChips = cinema.times.map(t => `<div class="time-chip">${t}</div>`).join('');
-                        container.innerHTML += `
-                            <div class="movie-schedule-card">
-                                <h4>📍 ${cinema.cinema_name} (${cinema.type || '2D 數位'})</h4>
-                                <div class="time-slots-grid">${timeChips}</div>
-                            </div>
-                        `;
-                    });
-                } else {
-                    // 【依影城查詢】：找出選定影城，並列出該影城今日播放的所有電影與場次
-                    let matchedMovies = rawData.filter(item => item.cinema_name.includes(cinemaVal));
-
-                    if (matchedMovies.length === 0) {
-                        container.innerHTML = '<span style="color: #999;">該影城今日暫無提供場次資訊。</span>';
-                        return;
-                    }
-
-                    matchedMovies.forEach(movie => {
-                        let timeChips = movie.times.map(t => `<div class="time-chip">${t}</div>`).join('');
-                        container.innerHTML += `
-                            <div class="movie-schedule-card">
-                                <h4>🎬 ${movie.movie_name} (${movie.rating || '普'})</h4>
-                                <div class="time-slots-grid">${timeChips}</div>
-                            </div>
-                        `;
-                    });
+                if (matchedCinemas.length === 0) {
+                    container.innerHTML = '<span style="color: #999;">今日此電影暫無放映場次。</span>';
+                    return;
                 }
-            } catch (err) {
-                console.error(err);
-                container.innerHTML = `
-                    <div style="color:#d32f2f; font-size:0.9rem; text-align:center; padding:10px;">
-                        ❌ 讀取即時時刻表失敗。<br>
-                        <small style="color:#777;">原因：公開 API 當前流量過大或端點維護中。請稍後再試！</small>
-                    </div>
-                `;
+
+                matchedCinemas.forEach(cinema => {
+                    // 將場次陣列轉換成一塊塊的時段按鈕 (Time Chips)
+                    let timeChips = cinema.times.map(t => `<div class="time-chip">${t}</div>`).join('');
+                    container.innerHTML += `
+                        <div class="movie-schedule-card">
+                            <h4>📍 ${cinema.cinema_name} (${cinema.type || '2D 數位'})</h4>
+                            <div class="time-slots-grid">${timeChips}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                // 【依影城查詢】：在全台資料中，找出「該影城」今日播放的所有電影與時間
+                let matchedMovies = globalMovieData.filter(item => item.cinema_name === selectedCinema);
+
+                if (matchedMovies.length === 0) {
+                    container.innerHTML = '<span style="color: #999;">該影城今日暫無提供場次資訊。</span>';
+                    return;
+                }
+
+                matchedMovies.forEach(movie => {
+                    let timeChips = movie.times.map(t => `<div class="time-chip">${t}</div>`).join('');
+                    container.innerHTML += `
+                        <div class="movie-schedule-card">
+                            <h4>🎬 ${movie.movie_name}</h4>
+                            <div class="time-slots-grid">${timeChips}</div>
+                        </div>
+                    `;
+                });
             }
         }
+
+        /* -----------------------------------------------------------------
+           F. 初始執行區
+           ----------------------------------------------------------------- */
+        // 繪製美食轉盤空白底圖
+        drawWheel();
+        
+        // 網頁一打開，立刻在背景向 API 請求今日最新的電影與影城清單
+        initMovieSchedule();
+    </script>
+</body>
+</html>
 
         // 初始化繪製空白轉盤
         drawWheel();
