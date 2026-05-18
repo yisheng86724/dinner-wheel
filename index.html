@@ -379,7 +379,7 @@
         try {
             // 這裡確保是使用外層已經宣告好的 global supabase 物件
             // 只對 data 和 error 進行解構宣告
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('regions')
                 .insert([{ name: name }])
                 .select();
