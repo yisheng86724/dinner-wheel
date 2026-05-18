@@ -715,76 +715,12 @@
             requestAnimationFrame(animate);
         });
 
- /* -----------------------------------------------------------------
-           E. 電影時刻表查詢核心邏輯 (方案二：全自動網路 API 串接版)
+        /* -----------------------------------------------------------------
+           E. 電影時刻表查詢核心邏輯 (目前為前端模擬資料，預留串接接口)
            ----------------------------------------------------------------- */
-        let currentSearchMode = 'movie'; // 預設為 'movie' 模式
-        let globalMovieData = [];        // 存放從 API 撈回來的全台今日原始場次資料
+        let currentSearchMode = 'movie'; 
 
-        // 1. 初始化：網頁載入時自動去撈取今日 API 所有資料，並建置下拉選單
-        async function initMovieSchedule() {
-            const movieSelect = document.getElementById('movie-select');
-            const cinemaSelect = document.getElementById('cinema-select');
-            const container = document.getElementById('schedule-results-container');
-
-            movieSelect.innerHTML = '<option value="">-- 資料載入中... --</option>';
-            cinemaSelect.innerHTML = '<option value="">-- 資料載入中... --</option>';
-
-            try {
-                // 使用 allorigins 代理伺服器解決前端跨網域 (CORS) 限制
-                const targetUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://taiwan-movie-api.vercel.app/api/today')}`;
-                let response = await fetch(targetUrl);
-                if (!response.ok) throw new Error('網路連線異常');
-                
-                let wrapperData = await response.json();
-                globalMovieData = JSON.parse(wrapperData.contents); // 儲存至全域變數
-
-                // --- 動態產生「電影選單」 (利用 Set 篩選出重複的電影名稱) ---
-                const movieSet = new Set();
-                globalMovieData.forEach(item => {
-                    if(item.movie_name) movieSet.add(item.movie_name.trim());
-                });
-
-                movieSelect.innerHTML = '<option value="">-- 請選擇電影 --</option>';
-                // 將排序後的電影塞入下拉選單
-                Array.from(movieSet).sort().forEach(movieName => {
-                    const opt = document.createElement('option');
-                    opt.value = movieName;
-                    opt.textContent = movieName;
-                    movieSelect.appendChild(opt);
-                });
-
-                // --- 動態產生「影城選單」 (利用 Set 篩選出重複的影城名稱) ---
-                const cinemaSet = new Set();
-                globalMovieData.forEach(item => {
-                    if(item.cinema_name) cinemaSet.add(item.cinema_name.trim());
-                });
-
-                cinemaSelect.innerHTML = '<option value="">-- 請選擇影城 --</option>';
-                // 將排序後的影城塞入下拉選單
-                Array.from(cinemaSet).sort().forEach(cinemaName => {
-                    const opt = document.createElement('option');
-                    opt.value = cinemaName;
-                    opt.textContent = cinemaName;
-                    cinemaSelect.appendChild(opt);
-                });
-
-                container.innerHTML = '<span style="color: #4caf50; font-size: 0.9rem;">✅ 今日最新場次全數載入完成！請選擇上方條件查詢。</span>';
-
-            } catch (err) {
-                console.error(err);
-                movieSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
-                cinemaSelect.innerHTML = '<option value="">-- 載入失敗 --</option>';
-                container.innerHTML = `
-                    <div style="color:#d32f2f; font-size:0.9rem; text-align:center; padding:10px;">
-                        ❌ 無法取得今日電影資訊。<br>
-                        <small style="color:#777;">原因：API 伺服器延遲。請重新整理網頁試試看！</small>
-                    </div>
-                `;
-            }
-        }
-
-        // 2. 切換查詢模式 (依電影 或 依影城)
+        // 1. 切換查詢模式 (依電影 或 依影城)
         function switchSearchMode(mode) {
             currentSearchMode = mode;
             const movieSection = document.getElementById('search-by-movie-section');
@@ -793,9 +729,7 @@
             const tabCinema = document.getElementById('tab-by-cinema');
             const container = document.getElementById('schedule-results-container');
 
-            // 切換時重置下拉選單值與提示
-            document.getElementById('movie-select').value = '';
-            document.getElementById('cinema-select').value = '';
+            // 重置與清空
             container.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
             
             if (mode === 'movie') {
@@ -803,79 +737,74 @@
                 cinemaSection.style.display = 'none';
                 tabMovie.style.background = '#0288d1';   
                 tabCinema.style.background = '#78909c';  
+                document.getElementById('movie-select').value = '';
             } else {
                 movieSection.style.display = 'none';
                 cinemaSection.style.display = 'flex';
                 tabMovie.style.background = '#78909c';
                 tabCinema.style.background = '#0288d1';
+                document.getElementById('cinema-select').value = '';
             }
         }
 
-        // 3. 當使用者選定內容時，直接對已下載的 globalMovieData 進行過濾與渲染
+        // 2. 模擬拉取並渲染時刻表
         function fetchSchedules() {
             const container = document.getElementById('schedule-results-container');
-            const selectedMovie = document.getElementById('movie-select').value;
-            const selectedCinema = document.getElementById('cinema-select').value;
+            const movieVal = document.getElementById('movie-select').value;
+            const cinemaVal = document.getElementById('cinema-select').value;
 
-            // 檢查是否有選取值
-            if ((currentSearchMode === 'movie' && !selectedMovie) || (currentSearchMode === 'cinema' && !selectedCinema)) {
+            // 未選取任何選項則返回提示
+            if ((currentSearchMode === 'movie' && !movieVal) || (currentSearchMode === 'cinema' && !cinemaVal)) {
                 container.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇上方電影或影城以載入場次...</span>';
                 return;
             }
 
-            container.innerHTML = ''; // 清空畫面
+            container.innerHTML = '<div style="color:#666; font-size:0.95rem; text-align:center; padding:10px;">🔍 正在為您搜尋最新場次資訊...</div>';
 
-            if (currentSearchMode === 'movie') {
-                // 【依電影查詢】：在全台資料中，找出所有放映「該電影」的影城與時間
-                let matchedCinemas = globalMovieData.filter(item => item.movie_name === selectedMovie);
+            // 模擬異步 API 載入延遲效果 (0.5秒)
+            setTimeout(() => {
+                container.innerHTML = ''; 
 
-                if (matchedCinemas.length === 0) {
-                    container.innerHTML = '<span style="color: #999;">今日此電影暫無放映場次。</span>';
-                    return;
-                }
-
-                matchedCinemas.forEach(cinema => {
-                    // 將場次陣列轉換成一塊塊的時段按鈕 (Time Chips)
-                    let timeChips = cinema.times.map(t => `<div class="time-chip">${t}</div>`).join('');
+                if (currentSearchMode === 'movie') {
+                    // 【依電影查詢】呈現各影城針對該電影的場次
                     container.innerHTML += `
                         <div class="movie-schedule-card">
-                            <h4>📍 ${cinema.cinema_name} (${cinema.type || '2D 數位'})</h4>
-                            <div class="time-slots-grid">${timeChips}</div>
+                            <h4>📍 信義威秀影城 (2D 數位)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">10:30</div><div class="time-chip">13:15</div>
+                                <div class="time-chip">16:00</div><div class="time-chip">19:45</div>
+                                <div class="time-chip">22:30</div>
+                            </div>
+                        </div>
+                        <div class="movie-schedule-card">
+                            <h4>📍 美麗華大直影城 (IMAX 3D)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">12:00</div><div class="time-chip">15:30</div>
+                                <div class="time-chip">18:40</div><div class="time-chip">21:50</div>
+                            </div>
                         </div>
                     `;
-                });
-            } else {
-                // 【依影城查詢】：在全台資料中，找出「該影城」今日播放的所有電影與時間
-                let matchedMovies = globalMovieData.filter(item => item.cinema_name === selectedCinema);
-
-                if (matchedMovies.length === 0) {
-                    container.innerHTML = '<span style="color: #999;">該影城今日暫無提供場次資訊。</span>';
-                    return;
-                }
-
-                matchedMovies.forEach(movie => {
-                    let timeChips = movie.times.map(t => `<div class="time-chip">${t}</div>`).join('');
+                } else {
+                    // 【依影城查詢】呈現該影城目前熱映中的各部電影
                     container.innerHTML += `
                         <div class="movie-schedule-card">
-                            <h4>🎬 ${movie.movie_name}</h4>
-                            <div class="time-slots-grid">${timeChips}</div>
+                            <h4>🎬 復仇者聯盟 5 (輔12)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">11:00</div><div class="time-chip">14:20</div>
+                                <div class="time-chip">17:40</div><div class="time-chip">21:00</div>
+                            </div>
+                        </div>
+                        <div class="movie-schedule-card">
+                            <h4>🎬 名偵探柯南 劇場版 (普)</h4>
+                            <div class="time-slots-grid">
+                                <div class="time-chip">09:30</div><div class="time-chip">13:00</div>
+                                <div class="time-chip">16:15</div>
+                            </div>
                         </div>
                     `;
-                });
-            }
+                }
+            }, 500);
         }
-
-        /* -----------------------------------------------------------------
-           F. 初始執行區
-           ----------------------------------------------------------------- */
-        // 繪製美食轉盤空白底圖
-        drawWheel();
-        
-        // 網頁一打開，立刻在背景向 API 請求今日最新的電影與影城清單
-        initMovieSchedule();
-    </script>
-</body>
-</html>
 
         // 初始化繪製空白轉盤
         drawWheel();
