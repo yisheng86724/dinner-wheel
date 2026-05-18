@@ -222,9 +222,9 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_dYJ7_EHjkfM1OIYjK749Lg_tQfmhfgj';
     
     // 初始化 Supabase，並明確關閉自動儲存 Session 的功能，避免引發瀏覽器隱私阻擋
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
-            persistSession: false, // 💡 關鍵：不把登入狀態存在瀏覽器，避開 Tracking Prevention
+            persistSession: false,
             autoRefreshToken: false
         }
     });
@@ -256,7 +256,7 @@
     async function loadRegions() {
         try {
             // 查詢 regions 資料表，並依 id 排序
-            let { data, error } = await supabase.from('regions').select('*').order('id', { ascending: true });
+            let { data, error } = await supabaseClient.from('regions').select('*').order('id', { ascending: true });
             if (error) throw error;
 
             regions = data || [];
@@ -300,7 +300,7 @@
     async function loadFoods(regionId) {
         if (!regionId) return;
         try {
-            let { data, error } = await supabase
+            let { data, error } = await supabaseClient
                 .from('foods')
                 .select('*')
                 .eq('region_id', regionId)
@@ -403,7 +403,7 @@
 
         try {
             // 這裡同樣只宣告 error，不要動到 supabase 這個字
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('foods')
                 .insert([{ name: name, region_id: selectedRegionId }]);
                 
@@ -424,7 +424,7 @@
     window.deleteFoodFromDB = async function(foodId) {
         if (isSpinning) return;
         try {
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('foods')
                 .delete()
                 .eq('id', foodId);
