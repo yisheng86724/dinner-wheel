@@ -747,8 +747,8 @@
             }
         }
 
-        // 2. 模擬拉取並渲染時刻表
-        function fetchSchedules() {
+        // 2. 自動化撈取並渲染真實網路時刻表
+        async function fetchSchedules() {
             const container = document.getElementById('schedule-results-container');
             const movieVal = document.getElementById('movie-select').value;
             const cinemaVal = document.getElementById('cinema-select').value;
@@ -759,51 +759,70 @@
                 return;
             }
 
-            container.innerHTML = '<div style="color:#666; font-size:0.95rem; text-align:center; padding:10px;">🔍 正在為您搜尋最新場次資訊...</div>';
+            container.innerHTML = '<div style="color:#0288d1; font-size:0.95rem; text-align:center; padding:10px;">⚡ 正在連線至公開 API 撈取全台即時場次...</div>';
 
-            // 模擬異步 API 載入延遲效果 (0.5秒)
-            setTimeout(() => {
-                container.innerHTML = ''; 
+            try {
+                // 1. 設定開源的台灣電影資料 API 端點 (這裡以社群常用的民間聚合 API 為例)
+                // 💡 注意：因為前端 CORS 限制，我們加上了 allorigins 代理伺服器
+                const targetUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://taiwan-movie-api.vercel.app/api/today')}`;
+                
+                let response = await fetch(targetUrl);
+                if (!response.ok) throw new Error('網路連線異常');
+                
+                let wrapperData = await response.json();
+                // allorigins 會將原 json 字串包在 contents 屬性中
+                let rawData = JSON.parse(wrapperData.contents); 
 
+                container.innerHTML = ''; // 清空加載中提示
+
+                // 2. 解析並呈現資料
                 if (currentSearchMode === 'movie') {
-                    // 【依電影查詢】呈現各影城針對該電影的場次
-                    container.innerHTML += `
-                        <div class="movie-schedule-card">
-                            <h4>📍 信義威秀影城 (2D 數位)</h4>
-                            <div class="time-slots-grid">
-                                <div class="time-chip">10:30</div><div class="time-chip">13:15</div>
-                                <div class="time-chip">16:00</div><div class="time-chip">19:45</div>
-                                <div class="time-chip">22:30</div>
+                    // 【依電影查詢】：找出選定電影，並列出有播放該電影的影城與場次
+                    // 備註：以下 logic 依據標準開源電影 API 的 JSON 結構進行篩選
+                    let matchedCinemas = rawData.filter(item => item.movie_name.includes(movieVal));
+
+                    if (matchedCinemas.length === 0) {
+                        container.innerHTML = '<span style="color: #999;">今日此電影暫無放映場次。</span>';
+                        return;
+                    }
+
+                    matchedCinemas.forEach(cinema => {
+                        let timeChips = cinema.times.map(t => `<div class="time-chip">${t}</div>`).join('');
+                        container.innerHTML += `
+                            <div class="movie-schedule-card">
+                                <h4>📍 ${cinema.cinema_name} (${cinema.type || '2D 數位'})</h4>
+                                <div class="time-slots-grid">${timeChips}</div>
                             </div>
-                        </div>
-                        <div class="movie-schedule-card">
-                            <h4>📍 美麗華大直影城 (IMAX 3D)</h4>
-                            <div class="time-slots-grid">
-                                <div class="time-chip">12:00</div><div class="time-chip">15:30</div>
-                                <div class="time-chip">18:40</div><div class="time-chip">21:50</div>
-                            </div>
-                        </div>
-                    `;
+                        `;
+                    });
                 } else {
-                    // 【依影城查詢】呈現該影城目前熱映中的各部電影
-                    container.innerHTML += `
-                        <div class="movie-schedule-card">
-                            <h4>🎬 復仇者聯盟 5 (輔12)</h4>
-                            <div class="time-slots-grid">
-                                <div class="time-chip">11:00</div><div class="time-chip">14:20</div>
-                                <div class="time-chip">17:40</div><div class="time-chip">21:00</div>
+                    // 【依影城查詢】：找出選定影城，並列出該影城今日播放的所有電影與場次
+                    let matchedMovies = rawData.filter(item => item.cinema_name.includes(cinemaVal));
+
+                    if (matchedMovies.length === 0) {
+                        container.innerHTML = '<span style="color: #999;">該影城今日暫無提供場次資訊。</span>';
+                        return;
+                    }
+
+                    matchedMovies.forEach(movie => {
+                        let timeChips = movie.times.map(t => `<div class="time-chip">${t}</div>`).join('');
+                        container.innerHTML += `
+                            <div class="movie-schedule-card">
+                                <h4>🎬 ${movie.movie_name} (${movie.rating || '普'})</h4>
+                                <div class="time-slots-grid">${timeChips}</div>
                             </div>
-                        </div>
-                        <div class="movie-schedule-card">
-                            <h4>🎬 名偵探柯南 劇場版 (普)</h4>
-                            <div class="time-slots-grid">
-                                <div class="time-chip">09:30</div><div class="time-chip">13:00</div>
-                                <div class="time-chip">16:15</div>
-                            </div>
-                        </div>
-                    `;
+                        `;
+                    });
                 }
-            }, 500);
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `
+                    <div style="color:#d32f2f; font-size:0.9rem; text-align:center; padding:10px;">
+                        ❌ 讀取即時時刻表失敗。<br>
+                        <small style="color:#777;">原因：公開 API 當前流量過大或端點維護中。請稍後再試！</small>
+                    </div>
+                `;
+            }
         }
 
         // 初始化繪製空白轉盤
