@@ -121,26 +121,38 @@
         }
 
         /* -----------------------------------------------------------------
-           2. 美食轉盤專屬樣式 (你原本的轉盤樣式)
+           2. 美食轉盤專屬樣式
            ----------------------------------------------------------------- */
         .wheel-dashboard {
             background: white;
             padding: 25px;
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .control-panel {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
             align-items: center;
+            width: 100%;
+            max-width: 500px;
+        }
+        .control-panel label {
+            font-weight: bold;
         }
         select, input, button.action-btn {
             padding: 10px 14px;
             font-size: 1rem;
             border-radius: 6px;
             border: 1px solid #ccc;
+        }
+        select, input {
+            flex: 1;
+            min-width: 150px;
         }
         button.action-btn {
             background-color: #4caf50;
@@ -152,21 +164,75 @@
         button.action-btn:hover {
             background-color: #43a047;
         }
+        
+        /* 食物管理清單與刪除按鈕樣式 */
+        .food-list-management {
+            margin-top: 20px;
+            max-width: 500px;
+            width: 100%;
+            text-align: left;
+        }
+        .food-list-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #444;
+        }
+        #food-items-container {
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fafafa;
+        }
+        .food-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #ffffff;
+            border: 1px solid #eaeaea;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+        .food-item-row:last-child {
+            margin-bottom: 0;
+        }
+        .delete-food-btn {
+            background-color: #ffdde0;
+            color: #d32f2f;
+            border: 1px solid #ffc1c6;
+            padding: 4px 10px;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .delete-food-btn:hover {
+            background-color: #d32f2f;
+            color: white;
+        }
+
         .wheel-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             margin-top: 30px;
+            width: 100%;
         }
         #wheel-canvas {
             border: 4px solid #333;
             border-radius: 50%;
             background-color: #fff;
             box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+            max-width: 100%;
+            height: auto;
         }
         #spin-trigger {
             margin-top: 20px;
-            padding: 12px 30px;
+            padding: 12px 35px;
             font-size: 1.2rem;
             background-color: #ff5722;
             color: white;
@@ -175,16 +241,19 @@
             cursor: pointer;
             font-weight: bold;
             box-shadow: 0 4px 10px rgba(255,87,34,0.3);
+            transition: all 0.2s;
         }
         #spin-trigger:hover {
             background-color: #f4511e;
+            transform: scale(1.05);
         }
         #result-display {
             margin-top: 20px;
             font-size: 1.5rem;
             font-weight: bold;
             color: #e64a19;
-            height: 2rem;
+            text-align: center;
+            min-height: 2.2rem;
         }
     </style>
 </head>
@@ -207,7 +276,7 @@
                 <p>糾結的時候，就讓動態美食轉盤幫你隨機挑選完美的一餐！</p>
             </div>
 
-            <!-- 功能 2：未來擴充預留 (可自行複製修改) -->
+            <!-- 功能 2：未來擴充預留 -->
             <div class="menu-card" onclick="switchPage('coming-soon-page')">
                 <span class="icon">💰</span>
                 <h3>記帳小幫手</h3>
@@ -223,23 +292,35 @@
         <button class="back-btn" onclick="showMainMenu()">⬅️ 返回主選單</button>
         
         <div class="wheel-dashboard">
-            <h2>🎡 今天吃什麼？美食決策轉盤</h2>
+            <h2 style="text-align: center; margin-top: 0; color: #2e7d32;">🎡 今天吃什麼？美食決策轉盤</h2>
             
+            <!-- 控制區：地區選擇與新增 -->
             <div class="control-panel">
-                <label for="region-select">選擇地區：</label>
+                <label for="region-select">地區：</label>
                 <select id="region-select">
                     <option value="">-- 請選擇地區 --</option>
                 </select>
-                
-                <input type="text" id="new-region-input" placeholder="新增地區名稱">
+            </div>
+            <div class="control-panel">
+                <input type="text" id="new-region-input" placeholder="新增地區名稱 (例如: 中山區)">
                 <button id="add-region-btn" class="action-btn">新增地區</button>
             </div>
 
+            <!-- 控制區：食物新增 -->
             <div class="control-panel">
-                <input type="text" id="new-food-input" placeholder="新增食物名稱">
-                <button id="add-food-btn" class="action-btn">加入此地區美食</button>
+                <input type="text" id="new-food-input" placeholder="新增食物名稱 (例如: 拉麵)">
+                <button id="add-food-btn" class="action-btn">加入此區美食</button>
             </div>
 
+            <!-- 食物刪除與管理面板 -->
+            <div class="food-list-management">
+                <div class="food-list-title">📍 目前區域美食清單（可在此刪除）：</div>
+                <div id="food-items-container">
+                    <span style="color: #999; font-size: 0.9rem;">請先選擇地區...</span>
+                </div>
+            </div>
+
+            <!-- 畫布與轉盤抽籤 -->
             <div class="wheel-container">
                 <canvas id="wheel-canvas" width="400" height="400"></canvas>
                 <button id="spin-trigger">開始抽籤！</button>
@@ -265,14 +346,14 @@
          ================================================================= -->
     <script>
         /* -----------------------------------------------------------------
-           A. Supabase 初始化 (已修正：避開隱私限制、修正重複 URL 邏輯)
+           A. Supabase 初始化設定
            ----------------------------------------------------------------- */
-        const SUPABASE_URL = 'https://wqlcmlybfdyqlyysfauq.supabase.co'; // 💡 確保結尾到 .co，無多餘斜線與 /rest/v1
-        const SUPABASE_ANON_KEY = 'sb_publishable_dYJ7_EHjkfM1OIYjK749Lg_tQfmhfgj'; // 💡 確保貼上完整的 Publishable key
+        const SUPABASE_URL = 'https://wqlcmlybfdyqlyysfauq.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'sb_publishable_dYJ7_EHjkfM1OIYjK749Lg_tQfmhfgj'; 
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: {
-                persistSession: false, // 💡 關鍵：徹底避開瀏覽器 Tracking Prevention 阻擋
+                persistSession: false, 
                 autoRefreshToken: false
             }
         });
@@ -281,30 +362,24 @@
            B. SPA 頁面切換控制邏輯
            ----------------------------------------------------------------- */
         function switchPage(pageId) {
-            // 隱藏主選單
             document.getElementById('main-menu').style.display = 'none';
-            // 隱藏所有分頁
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-            // 顯示目標分頁
             document.getElementById(pageId).style.display = 'block';
 
-            // 💡 效能優化：只有在真正點進美食轉盤頁面時，才去撈取 Supabase 的資料
+            // 只有在真正點進美食轉盤頁面時，才去撈取資料
             if (pageId === 'dinner-wheel-page') {
                 loadRegions();
             }
         }
 
         function showMainMenu() {
-            // 隱藏所有分頁
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-            // 顯示主選單
             document.getElementById('main-menu').style.display = 'block';
-            // 順便清除一下轉盤殘留的結果字體
             document.getElementById('result-display').innerText = '';
         }
 
         /* -----------------------------------------------------------------
-           C. 美食轉盤核心業務邏輯 (已同步更新為 supabaseClient 物件呼叫)
+           C. 美食轉盤核心業務邏輯
            ----------------------------------------------------------------- */
         const regionSelect = document.getElementById('region-select');
         const newRegionInput = document.getElementById('new-region-input');
@@ -315,6 +390,7 @@
         const ctx = canvas.getContext('2d');
         const spinTrigger = document.getElementById('spin-trigger');
         const resultDisplay = document.getElementById('result-display');
+        const foodItemsContainer = document.getElementById('food-items-container');
 
         let foodList = [];
         let currentColors = [];
@@ -339,11 +415,13 @@
             }
         }
 
-        // 2. 監聽地區切換 $\rightarrow$ 撈取該區食物
+        // 2. 監聽地區切換 $\rightarrow$ 撈取該區食物並動態渲染管理列表
         regionSelect.addEventListener('change', async () => {
             const regionId = regionSelect.value;
+            
             if (!regionId) {
                 foodList = [];
+                foodItemsContainer.innerHTML = '<span style="color: #999; font-size: 0.9rem;">請先選擇地區...</span>';
                 drawWheel();
                 return;
             }
@@ -351,9 +429,26 @@
                 let { data, error } = await supabaseClient.from('foods').select('*').eq('region_id', regionId).order('id', { ascending: true });
                 if (error) throw error;
                 
+                // 更新轉盤專用陣列
                 foodList = data.map(item => item.name);
                 generateColors(foodList.length);
                 drawWheel();
+
+                // 渲染後台管理列表與刪除功能
+                foodItemsContainer.innerHTML = '';
+                if (data.length === 0) {
+                    foodItemsContainer.innerHTML = '<span style="color: #999; font-size: 0.9rem;">此地區目前沒有美食，快去上方新增吧！</span>';
+                } else {
+                    data.forEach(item => {
+                        const row = document.createElement('div');
+                        row.className = 'food-item-row';
+                        row.innerHTML = `
+                            <span>${item.name}</span>
+                            <button class="delete-food-btn" onclick="deleteFoodFromDB(${item.id})">刪除</button>
+                        `;
+                        foodItemsContainer.appendChild(row);
+                    });
+                }
             } catch (err) {
                 console.error(err);
                 alert('載入美食清單失敗！');
@@ -388,7 +483,7 @@
                 if (error) throw error;
                 newFoodInput.value = '';
                 
-                // 重新觸發 change 事件刷新轉盤
+                // 重新觸發 change 事件刷新列表與轉盤
                 regionSelect.dispatchEvent(new Event('change'));
                 alert('美食加入成功！');
             } catch (err) {
@@ -396,6 +491,22 @@
                 alert('新增食物失敗！');
             }
         });
+
+        // 5. 刪除食物功能
+        async function deleteFoodFromDB(foodId) {
+            if (!confirm('確定要從雲端資料庫刪除這項美食嗎？')) return;
+            try {
+                const { error } = await supabaseClient.from('foods').delete().eq('id', foodId);
+                if (error) throw error;
+                
+                alert('美食刪除成功！');
+                // 重新觸發 change 事件刷新列表與轉盤
+                regionSelect.dispatchEvent(new Event('change'));
+            } catch (err) {
+                console.error(err);
+                alert('刪除食物失敗：' + (err.message || err));
+            }
+        }
 
         /* -----------------------------------------------------------------
            D. HTML5 Canvas 轉盤繪製與旋轉核心動畫
@@ -452,7 +563,6 @@
             ctx.fill();
         }
 
-        // 旋轉動畫變數
         let isSpinning = false;
         spinTrigger.addEventListener('click', () => {
             if (isSpinning || foodList.length === 0) return;
@@ -460,19 +570,17 @@
             resultDisplay.innerText = '正在瘋狂挑選中...';
 
             const startAngle = Math.random() * Math.PI * 2;
-            const spinDuration = 3500; // 旋轉 3.5 秒
-            const spinRounds = 6 + Math.floor(Math.random() * 5); // 隨機轉 6 到 10 圈
+            const spinDuration = 3500; 
+            const spinRounds = 6 + Math.floor(Math.random() * 5); 
             const targetAngle = startAngle + (spinRounds * Math.PI * 2);
             const startTime = performance.now();
 
             function animate(now) {
                 const timeline = now - startTime;
                 if (timeline >= spinDuration) {
-                    // 動畫結束，計算結果
                     const finalAngle = targetAngle % (Math.PI * 2);
                     drawWheel(finalAngle);
                     
-                    // 計算指針(正上方角度為 1.5 * Math.PI)指向哪一個區塊
                     const arcSize = (2 * Math.PI) / foodList.length;
                     let normalizedPointer = (1.5 * Math.PI - finalAngle) % (Math.PI * 2);
                     if (normalizedPointer < 0) normalizedPointer += Math.PI * 2;
@@ -483,7 +591,6 @@
                     return;
                 }
 
-                // 採用 Ease-Out 減速動態公式
                 const progress = timeline / spinDuration;
                 const easeOutProgress = 1 - Math.pow(1 - progress, 3);
                 const currentAngle = startAngle + (targetAngle - startAngle) * easeOutProgress;
@@ -495,7 +602,7 @@
             requestAnimationFrame(animate);
         });
 
-        // 初始化預設畫出空白轉盤
+        // 初始化繪製
         drawWheel();
     </script>
 </body>
